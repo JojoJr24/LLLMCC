@@ -1,0 +1,19 @@
+# Python
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+*.pyzw
+*.pyt
+*.pyi
+*.pyo
+*.egg-info/
+dist/
+build/
+data/
+.eggs/
+
+# Virtual Environment
+venv/
