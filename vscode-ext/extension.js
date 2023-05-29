@@ -44,7 +44,6 @@ function activate(context) {
 
 		if (editor) {
 			async function callRun() {
-
 				const response = await postData(url + "/addCode", { prompt: codeAboveCursor, lenguaje: languageId, proyecto: folderName });
 				editor.edit((editBuilder) => {
 					editBuilder.insert(currentPosition, response);

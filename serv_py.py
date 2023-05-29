@@ -1,49 +1,46 @@
+import os
+os.environ['TRANSFORMERS_CACHE'] = '/mnt/hdd/IA/Txt2Txt/modelos'
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+
+import torch
+
 import sys
-import llamacpp
 from typing import Optional, List, Mapping, Any
 import flask
 from langchain.llms.base import LLM
 
-Model_max_length= 200
-Max_words_per_call = 200
+Model_max_length= 4000
+Max_words_per_call = 4000
 
-def progress_callback(progress):
-    print("Progress: {:.2f}%".format(progress * 100))
-    sys.stdout.flush()
+checkpoint = "bigcode/tiny_starcoder_py"
+device = "cuda" # for GPU usage or "cpu" for CPU usage
 
+tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+model = AutoModelForCausalLM.from_pretrained(checkpoint,device_map="auto")
 
-params = llamacpp.InferenceParams.default_with_callback(progress_callback)
-params.path_model = '/mnt/hdd/IA/Txt2Txt/Oobabooba/text-generation-webui/models/ggml-vicuna-13b-4bit.bin'
+pipe = pipeline(
+    "text-generation",
+    model=model,
+    tokenizer=tokenizer,
+    max_length=Model_max_length,
+    temperature=0,
+    top_p=0.95,
+    repetition_penalty= 1.2 
+)
 
-params.n_ctx = Model_max_length
-params.temp = 0.7
-model = llamacpp.LlamaInference(params)
 
 class CustomLLM(LLM):
     def _call(self, prompt: str, stop: Optional[List[str]] = None) -> str:
-        prompt_tokens = model.tokenize(prompt, True)
-        model.update_input(prompt_tokens)
-        model.ingest_all_pending_input()
-        response = ""
-        for i in range(Model_max_length):
-            if response.find("### Human") != -1:
-                break
-            if response.count("\n") > 4:
-                break
-            model.eval()
-            token = model.sample()
-            text = model.token_to_str(token)
-            sys.stdout.write(text)
-            sys.stdout.flush()
-            response = response + text
-        return response
+        response = pipe(prompt)[0]["generated_text"]
+        return response.replace(prompt,"")
+
 
 
    
 
     @property
     def _identifying_params(self) -> Mapping[str, Any]:
-        return {"Vicuna": self.model_name}
+        return {"Tiny": self.model_name}
 
     @property
     def _llm_type(self) -> str:
@@ -66,18 +63,15 @@ def index():
 @app.route("/addCode", methods=["POST"])
 def run():
     prompt = flask.request.json["prompt"]
-    lenguaje = flask.request.json[ "lenguaje"]
+    lenguaje = flask.request.json["lenguaje"]
     proyecto = flask.request.json["proyecto"]  
     p_arr = prompt.split(" ")
     if len(p_arr)>Max_words_per_call:
         p_arr = p_arr[-Max_words_per_call:]
         prompt = " ".join(p_arr)
 
-    context = f"""Human will give you code and comments of code in {lenguaje}. Read it and write the part that follows  
-    ### Human:
-    {prompt}
-    ### Assistant:"""
-    
+    context = prompt
+    print(prompt)
     response = local_llm(context)
     return flask.jsonify({"response": response})
 
